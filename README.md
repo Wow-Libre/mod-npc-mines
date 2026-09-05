@@ -25,3 +25,5 @@ Al cobrar, el servidor:
 4. Comprueba que el ItemTemplate exista y te entrega el item.
 
 No hace falta una tabla de premios fijos. Excluye quest, municion, keys y items DEPRECATED/test.
+
+<img width="457" height="552" alt="image" src="https://github.com/user-attachments/assets/02eeb3f9-bd6b-47ea-9b2a-521819758c4c" />
