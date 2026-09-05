@@ -28,3 +28,8 @@ Mines.Mult5 = 8
 Mines.Mult6 = 12
 Mines.Mult7 = 18
 Mines.Mult8 = 25
+
+#
+#    Item prizes come from a random item_template.entry.
+#    More safe cells = higher Quality (1 common ... 4 epic).
+#

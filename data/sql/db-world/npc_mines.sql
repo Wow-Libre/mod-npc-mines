@@ -16,20 +16,3 @@ INSERT INTO `npc_text` (`ID`, `text0_0`, `text0_1`, `BroadcastTextID0`, `lang0`,
 (150172, 'Campo activo. Una bomba oculta. Cuantas mas casillas limpias, mejor premio (oro e item).', '', 0, 0, 100, 0, 0, 0, 0, 0, 0, '', '', 0, 0, 0, 0, 0, 0, 0, 0, 0, '', '', 0, 0, 0, 0, 0, 0, 0, 0, 0, '', '', 0, 0, 0, 0, 0, 0, 0, 0, 0, '', '', 0, 0, 0, 0, 0, 0, 0, 0, 0, '', '', 0, 0, 0, 0, 0, 0, 0, 0, 0, '', '', 0, 0, 0, 0, 0, 0, 0, 0, 0, '', '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
 DROP TABLE IF EXISTS `mines_prizes`;
-CREATE TABLE `mines_prizes` (
-  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `item_entry` INT UNSIGNED NOT NULL COMMENT 'item_template.entry',
-  `item_count` INT UNSIGNED NOT NULL DEFAULT 1,
-  `min_revealed` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT 'safe cells required to roll this prize',
-  `weight` INT UNSIGNED NOT NULL DEFAULT 1,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-INSERT INTO `mines_prizes` (`item_entry`, `item_count`, `min_revealed`, `weight`) VALUES
-(2589,  5, 1, 30),
-(2592,  5, 2, 24),
-(4306,  4, 3, 18),
-(4338,  3, 4, 12),
-(14047, 3, 5,  8),
-(12359, 2, 6,  5),
-(12360, 1, 8,  2);

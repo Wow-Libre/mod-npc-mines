@@ -4,7 +4,6 @@
 #include "DatabaseEnv.h"
 #include "GossipDef.h"
 #include "Item.h"
-#include "Log.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "ScriptedGossip.h"
@@ -53,14 +52,6 @@ enum MinesActions
     ACTION_AGAIN      = GOSSIP_ACTION_INFO_DEF + 33
 };
 
-struct MinesPrize
-{
-    uint32 itemEntry = 0;
-    uint32 itemCount = 1;
-    uint8  minRevealed = 1;
-    uint32 weight = 1;
-};
-
 struct MinesSession
 {
     uint8  uiStep = MINES_UI_BET;
@@ -81,7 +72,6 @@ static bool MinesEnable = true;
 static bool MinesAnnounce = true;
 static uint64 MinesBet[5] = { 10000, 50000, 100000, 250000, 500000 };
 static uint32 MinesMult[9] = { 0, 1, 2, 3, 5, 8, 12, 18, 25 };
-static std::vector<MinesPrize> MinesPrizes;
 static std::map<ObjectGuid, MinesSession> MinesSessions;
 static std::string GridLetters = "ABC";
 
@@ -110,42 +100,15 @@ static MinesSession& GetSession(ObjectGuid guid)
     return MinesSessions[guid];
 }
 
-static void LoadMinesPrizes()
+static uint8 PrizeQualityForRevealed(uint8 revealed)
 {
-    MinesPrizes.clear();
-    QueryResult result = WorldDatabase.Query("SELECT item_entry, item_count, min_revealed, weight FROM mines_prizes");
-    if (!result)
-    {
-        LOG_WARN("module", "mines_prizes is empty or missing; item prizes disabled");
-        return;
-    }
-
-    do
-    {
-        Field* fields = result->Fetch();
-        MinesPrize prize;
-        prize.itemEntry = fields[0].Get<uint32>();
-        prize.itemCount = fields[1].Get<uint32>();
-        prize.minRevealed = fields[2].Get<uint8>();
-        prize.weight = fields[3].Get<uint32>();
-        if (!prize.itemEntry || !prize.itemCount || !prize.weight)
-            continue;
-
-        QueryResult itemRow = WorldDatabase.Query("SELECT entry, name FROM item_template WHERE entry = {}", prize.itemEntry);
-        if (!itemRow)
-        {
-            LOG_ERROR("module", "Mines prize {} not found in item_template", prize.itemEntry);
-            continue;
-        }
-
-        if (!sObjectMgr->GetItemTemplate(prize.itemEntry))
-        {
-            LOG_ERROR("module", "Mines prize {} has no ItemTemplate in memory", prize.itemEntry);
-            continue;
-        }
-
-        MinesPrizes.push_back(prize);
-    } while (result->NextRow());
+    if (revealed >= 7)
+        return 4;
+    if (revealed >= 5)
+        return 3;
+    if (revealed >= 3)
+        return 2;
+    return 1;
 }
 
 static bool GiveItemFromTemplate(Player* player, uint32 itemId, uint32 count, std::string& outName)
@@ -182,36 +145,47 @@ static bool GiveItemFromTemplate(Player* player, uint32 itemId, uint32 count, st
 
 static bool RollItemPrize(Player* player, uint8 revealed, uint32& itemId, uint32& itemCount, std::string& itemName)
 {
-    uint32 totalWeight = 0;
-    std::vector<MinesPrize const*> pool;
-    for (MinesPrize const& prize : MinesPrizes)
+    uint8 quality = PrizeQualityForRevealed(revealed);
+    uint32 playerLevel = player->GetLevel();
+
+    for (uint8 attempt = 0; attempt < 10; ++attempt)
     {
-        if (revealed >= prize.minRevealed)
-        {
-            pool.push_back(&prize);
-            totalWeight += prize.weight;
-        }
+        uint8 q = quality;
+        if (attempt > 3 && q > 1)
+            q = quality - 1;
+        if (attempt > 6)
+            q = 1;
+
+        QueryResult result = WorldDatabase.Query(
+            "SELECT entry, name, `class` FROM item_template "
+            "WHERE Quality = {} "
+            "AND `class` NOT IN (6, 10, 11, 12, 13) "
+            "AND (Flags & 16) = 0 "
+            "AND RequiredLevel <= {} "
+            "AND name NOT LIKE '%DEPRECATED%' "
+            "AND name NOT LIKE '%Test%' "
+            "AND name NOT LIKE '%OLD%' "
+            "AND name NOT LIKE '%NPC%' "
+            "ORDER BY RAND() LIMIT 1",
+            q, playerLevel);
+
+        if (!result)
+            continue;
+
+        Field* fields = result->Fetch();
+        itemId = fields[0].Get<uint32>();
+        itemName = fields[1].Get<std::string>();
+        uint32 itemClass = fields[2].Get<uint32>();
+        itemCount = (itemClass == 7) ? urand(1, 5) : 1;
+
+        if (GiveItemFromTemplate(player, itemId, itemCount, itemName))
+            return true;
     }
 
-    if (pool.empty() || !totalWeight)
-        return false;
-
-    uint32 roll = urand(1, totalWeight);
-    uint32 acc = 0;
-    MinesPrize const* picked = pool.back();
-    for (MinesPrize const* prize : pool)
-    {
-        acc += prize->weight;
-        if (roll <= acc)
-        {
-            picked = prize;
-            break;
-        }
-    }
-
-    itemId = picked->itemEntry;
-    itemCount = picked->itemCount;
-    return GiveItemFromTemplate(player, itemId, itemCount, itemName);
+    itemId = 0;
+    itemCount = 0;
+    itemName.clear();
+    return false;
 }
 
 class npc_mines : public CreatureScript
@@ -417,9 +391,6 @@ public:
             return true;
         }
 
-        if (MinesPrizes.empty())
-            LoadMinesPrizes();
-
         ShowMain(player, creature);
         return true;
     }
@@ -439,7 +410,7 @@ public:
             case ACTION_RULES:
             {
                 player->PlayerTalkClass->ClearMenus();
-                AddGossipItemFor(player, GOSSIP_ICON_TALK, "Rejilla 3x3. Una bomba. Destapa tesoros (A1-C3) y cobra cuando quieras. Mas casillas limpias = mas oro y mejor item de item_template.", GOSSIP_SENDER_MAIN, ACTION_RULES);
+                AddGossipItemFor(player, GOSSIP_ICON_TALK, "Rejilla 3x3. Una bomba. Destapa tesoros (A1-C3) y cobra cuando quieras. Mas casillas limpias = mas oro y un item aleatorio de item_template (mejor calidad si destapas mas).", GOSSIP_SENDER_MAIN, ACTION_RULES);
                 AddGossipItemFor(player, GOSSIP_ICON_TALK, "Menu principal", GOSSIP_SENDER_MAIN, ACTION_MAIN);
                 SendGossipMenuFor(player, GOSSIP_MENU_MINES_WELCOME, creature->GetGUID());
                 break;
@@ -505,8 +476,7 @@ class MinesWorld : public WorldScript
 {
 public:
     MinesWorld() : WorldScript("MinesWorld", {
-        WORLDHOOK_ON_BEFORE_CONFIG_LOAD,
-        WORLDHOOK_ON_STARTUP
+        WORLDHOOK_ON_BEFORE_CONFIG_LOAD
     }) { }
 
     void OnBeforeConfigLoad(bool /*reload*/) override
@@ -526,11 +496,6 @@ public:
         MinesMult[6] = sConfigMgr->GetOption<uint32>("Mines.Mult6", 12);
         MinesMult[7] = sConfigMgr->GetOption<uint32>("Mines.Mult7", 18);
         MinesMult[8] = sConfigMgr->GetOption<uint32>("Mines.Mult8", 25);
-    }
-
-    void OnStartup() override
-    {
-        LoadMinesPrizes();
     }
 };
 

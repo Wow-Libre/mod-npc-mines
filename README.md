@@ -20,8 +20,8 @@ NPC de casino: rejilla 3x3, una bomba oculta. Destapas casillas y cobras cuando 
 Al cobrar, el servidor:
 
 1. Paga oro segun casillas limpias.
-2. Elige un premio de la tabla `mines_prizes` (`min_revealed` <= casillas).
-3. Consulta `item_template` por `entry` y comprueba `ItemTemplate` en memoria.
-4. Si el id existe, entrega el item al jugador.
+2. Elige un `entry` al azar en `item_template` (`ORDER BY RAND()`).
+3. La calidad sube con las casillas: 1-2 comun, 3-4 uncomun, 5-6 raro, 7-8 epico.
+4. Comprueba que el ItemTemplate exista y te entrega el item.
 
-Edita `mines_prizes.item_entry` con ids reales de tu `item_template`.
+No hace falta una tabla de premios fijos. Excluye quest, municion, keys y items DEPRECATED/test.
