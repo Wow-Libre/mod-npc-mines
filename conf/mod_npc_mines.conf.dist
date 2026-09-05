@@ -1,0 +1,30 @@
+[worldserver]
+
+######################
+# NPC Juego de Minas #
+######################
+
+Mines.Enable = 1
+Mines.Announce = 1
+
+#
+#    Bet amounts in copper (10000 = 1 gold)
+
+Mines.Bet1 = 10000
+Mines.Bet2 = 50000
+Mines.Bet3 = 100000
+Mines.Bet4 = 250000
+Mines.Bet5 = 500000
+
+#
+#    Gold multiplier when cashing out after N safe cells (1-8)
+#    Prize gold = bet * multiplier
+
+Mines.Mult1 = 1
+Mines.Mult2 = 2
+Mines.Mult3 = 3
+Mines.Mult4 = 5
+Mines.Mult5 = 8
+Mines.Mult6 = 12
+Mines.Mult7 = 18
+Mines.Mult8 = 25
